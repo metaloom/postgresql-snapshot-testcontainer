@@ -43,7 +43,6 @@ Typical usecase:
 
   @BeforeAll
   public static void setupSnapshot() throws Exception {
-    db.startPostgresql();
     setupTable(db);
     insertUsers(db, 42, "johannes");
     db.snapshot();

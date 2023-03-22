@@ -18,7 +18,6 @@ public class SnapshotFsTest implements DatabaseTestcases {
   @BeforeAll
   public static void setupSnapshot() throws Exception {
     if (!db.hasFSSnapshot()) { 
-      db.startPostgresql();
       setupTable(db);
       insertUsers(db, 42, "johannes");
       db.fsSnapshot();

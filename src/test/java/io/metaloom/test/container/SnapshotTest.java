@@ -20,7 +20,6 @@ public class SnapshotTest implements DatabaseTestcases {
 
   @BeforeAll
   public static void setupSnapshot() throws SQLException, UnsupportedOperationException, IOException, InterruptedException {
-    db.startPostgresql();
     setupTable(db);
     insertUsers(db, 42, "johannes");
     db.snapshot();
