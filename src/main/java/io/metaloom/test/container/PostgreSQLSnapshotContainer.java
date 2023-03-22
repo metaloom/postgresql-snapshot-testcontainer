@@ -1,5 +1,8 @@
 package io.metaloom.test.container;
 
+import static org.junit.Assert.assertTrue;
+
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,6 +14,8 @@ public class PostgreSQLSnapshotContainer extends PostgreSQLContainer<PostgreSQLS
 
   public static final String DEFAULT_IMAGE = "postgres:13.2";
   public static final String SNAPSHOT_IMAGE = "postgres-snapshot:13.2";
+  private String snapshotName;
+  private String snapshotLocation;
 
   public PostgreSQLSnapshotContainer(int liveTmpFsSizeInMB, int snapshotTmpFsSizeInMB) {
     super(DockerImageName.parse(SNAPSHOT_IMAGE).asCompatibleSubstituteFor("postgres"));
@@ -33,7 +38,7 @@ public class PostgreSQLSnapshotContainer extends PostgreSQLContainer<PostgreSQLS
   }
 
   public void startPostgresql() throws UnsupportedOperationException, IOException, InterruptedException {
-    execInContainer("nohup", "bash", "-c", "docker-entrypoint.sh postgres -c fsync=off &","disown");
+    execInContainer("nohup", "bash", "-c", "docker-entrypoint.sh postgres -c fsync=off &", "disown");
   }
 
   public void stopPostgresql() throws UnsupportedOperationException, IOException, InterruptedException {
@@ -47,12 +52,43 @@ public class PostgreSQLSnapshotContainer extends PostgreSQLContainer<PostgreSQLS
     startPostgresql();
   }
 
+  public void fsSnapshot() throws UnsupportedOperationException, IOException, InterruptedException {
+    stopPostgresql();
+    execInContainer("sync");
+    execInContainer("rsync", "-rav", "/live/pgdata", "/fs-snapshot");
+    startPostgresql();
+  }
+
+  public void fsRestore() throws UnsupportedOperationException, IOException, InterruptedException {
+    stopPostgresql();
+    execInContainer("rm", "-rf", "/live/pgdata");
+    execInContainer("rsync", "-rav", "/fs-snapshot/pgdata", "/live");
+    execInContainer("sync");
+    startPostgresql();
+  }
+
   public void restore() throws UnsupportedOperationException, IOException, InterruptedException {
     stopPostgresql();
     execInContainer("rm", "-rf", "/live/pgdata");
     execInContainer("rsync", "-rav", "/snapshot/pgdata", "/live");
     execInContainer("sync");
     startPostgresql();
+  }
+
+  public PostgreSQLSnapshotContainer withFileSystemSnapshotLocation(String snapshotLocation, String snapshotName) {
+    this.snapshotLocation = snapshotLocation;
+    this.snapshotName = snapshotName;
+    File hostPath = new File(snapshotLocation, snapshotName);
+    if (!hostPath.exists()) {
+      assertTrue("Snapshot directory could not be created on the host " + hostPath.getAbsolutePath(), hostPath.mkdirs());
+    }
+    withFileSystemBind(hostPath.getAbsolutePath(), "/fs-snapshot");
+    return this;
+  }
+
+  public boolean hasFSSnapshot() {
+    File snapshotDir = new File(snapshotLocation, snapshotName);
+    return snapshotDir.exists() && snapshotDir.list().length != 0;
   }
 
 }
